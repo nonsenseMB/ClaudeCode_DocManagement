@@ -1,8 +1,15 @@
+# AutoDoc generated files and folders
+autodoc_docs/
+autodoc_vector_db/
+autodoc.config.json
+autodoc_venv/
+mcp_config.json
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
 *$py.class
-
+conda 
 # C extensions
 *.so
 

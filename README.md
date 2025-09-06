@@ -151,7 +151,7 @@ export AUTODOC_MAX_WORKERS=4
 
 ```
 your_project/
-├── autodoc/                    # AutoDoc system (portable)
+├── autodoc/                    # AutoDoc system (portable & self-contained)
 │   ├── core/                   # Core components
 │   │   ├── doc_system.py       # Main system
 │   │   └── js_analyzer.py      # JavaScript analyzer
@@ -159,14 +159,18 @@ your_project/
 │   ├── scripts/                # Utility scripts
 │   ├── cli.py                  # CLI interface
 │   ├── config.py               # Configuration
-│   └── utils.py                # Utilities & detection
-├── autodoc_docs/               # Generated documentation
-│   ├── files/                  # File docs
-│   ├── PROJECT_OVERVIEW.md     # Overview
-│   └── file_metadata.json      # Metadata
-├── autodoc_vector_db/          # ChromaDB storage
-└── autodoc_venv/               # Virtual environment
+│   ├── utils.py                # Utilities & detection
+│   ├── autodoc_docs/           # Generated documentation (inside autodoc/)
+│   │   ├── files/              # File docs
+│   │   ├── PROJECT_OVERVIEW.md # Overview
+│   │   └── file_metadata.json  # Metadata
+│   ├── autodoc_vector_db/      # ChromaDB storage (inside autodoc/)
+│   ├── autodoc.config.json     # Configuration file (inside autodoc/)
+│   └── autodoc_venv/           # Virtual environment (inside autodoc/)
+└── .gitignore                  # Should include autodoc/autodoc_*
 ```
+
+**Important**: All generated files stay within the `autodoc/` folder for true portability!
 
 ## 🔄 Integration with Existing Projects
 

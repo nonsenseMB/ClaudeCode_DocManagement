@@ -14,8 +14,8 @@ class AutoDocConfig:
     
     # Project settings
     project_root: str = "."
-    docs_dir: str = "autodoc_docs"
-    vector_db_dir: str = "autodoc_vector_db"
+    docs_dir: str = "autodoc/autodoc_docs"  # Changed to be inside autodoc folder
+    vector_db_dir: str = "autodoc/autodoc_vector_db"  # Changed to be inside autodoc folder
     
     # LLM settings
     llm_model: str = "codellama:7b"
@@ -42,7 +42,7 @@ class AutoDocConfig:
     mcp_server_host: str = "localhost"
     
     # Embedding model (optimized for code)
-    embedding_model: str = "microsoft/codebert-base"  # Better for code than MiniLM
+    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"  # Reliable and fast
     
     @classmethod
     def from_env(cls) -> 'AutoDocConfig':

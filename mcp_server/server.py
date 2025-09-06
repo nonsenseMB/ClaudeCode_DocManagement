@@ -8,6 +8,7 @@ import sys
 import os
 import json
 import logging
+import asyncio
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from datetime import datetime
@@ -15,8 +16,12 @@ from datetime import datetime
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from mcp.server import Server, Tool
-from mcp.server.stdio import stdio_server
+# Import MCP components
+from mcp.server.lowlevel import Server
+from mcp.server import stdio
+from mcp import Tool
+from mcp.types import TextContent
+
 from autodoc.core import (
     DocumentationSystem,
     CodeAnalyzer,
@@ -128,16 +133,7 @@ class DocumentationMCPServer:
         return None
     
     async def search_docs(self, query: str, limit: int = 10) -> Dict[str, Any]:
-        """
-        Search documentation using semantic search
-        
-        Args:
-            query: Search query
-            limit: Maximum number of results
-        
-        Returns:
-            Search results with relevance scores
-        """
+        """Search documentation using semantic search"""
         try:
             results = self.doc_system.indexer.search(
                 query=query,
@@ -153,16 +149,17 @@ class DocumentationMCPServer:
                     'type': result['metadata'].get('type', 'file'),
                     'name': result['metadata'].get('name', ''),
                     'line': result['metadata'].get('line_number', 0),
-                    'relevance': 1.0 - result['distance'],  # Convert distance to relevance
+                    'relevance': 1.0 - result['distance'],
                     'snippet': result['document'][:200] if result['document'] else ''
                 })
             
-            return {
+            response = {
                 'status': 'success',
                 'query': query,
                 'results_count': len(formatted_results),
                 'results': formatted_results
             }
+            return response  # Return dict, not JSON string
             
         except Exception as e:
             logger.error(f"Search error: {e}")
@@ -170,19 +167,10 @@ class DocumentationMCPServer:
                 'status': 'error',
                 'error': str(e),
                 'results': []
-            }
+            }  # Return dict, not JSON string
     
     async def find_similar_code(self, description: str, limit: int = 5) -> Dict[str, Any]:
-        """
-        Find similar code implementations
-        
-        Args:
-            description: Description of functionality to find
-            limit: Maximum number of results
-        
-        Returns:
-            Similar code elements with locations
-        """
+        """Find similar code implementations"""
         try:
             results = self.doc_system.indexer.find_similar_code(
                 description=description,
@@ -203,12 +191,13 @@ class DocumentationMCPServer:
                     'similarity': 1.0 - result['distance']
                 })
             
-            return {
+            response = {
                 'status': 'success',
                 'description': description,
                 'found': len(similar_code),
                 'similar_implementations': similar_code
             }
+            return response
             
         except Exception as e:
             logger.error(f"Find similar code error: {e}")
@@ -219,15 +208,7 @@ class DocumentationMCPServer:
             }
     
     async def check_dependencies(self, target: str) -> Dict[str, Any]:
-        """
-        Check what code depends on a target module/function
-        
-        Args:
-            target: Name of module, function, or class to check
-        
-        Returns:
-            List of dependencies and their locations
-        """
+        """Check what code depends on a target module/function"""
         try:
             results = self.doc_system.indexer.get_dependencies(target)
             
@@ -246,12 +227,13 @@ class DocumentationMCPServer:
                     'line': meta.get('line_number', 0)
                 })
             
-            return {
+            response = {
                 'status': 'success',
                 'target': target,
                 'files_affected': len(dependencies_by_file),
                 'dependencies': dependencies_by_file
             }
+            return response
             
         except Exception as e:
             logger.error(f"Check dependencies error: {e}")
@@ -262,15 +244,7 @@ class DocumentationMCPServer:
             }
     
     async def get_file_context(self, file_path: str) -> Dict[str, Any]:
-        """
-        Get complete documentation for a file
-        
-        Args:
-            file_path: Path to the Python file
-        
-        Returns:
-            Complete file documentation and analysis
-        """
+        """Get complete documentation for a file"""
         try:
             # Check if documentation exists
             relative_path = Path(file_path).relative_to(self.project_root)
@@ -293,7 +267,7 @@ class DocumentationMCPServer:
             # Get metadata
             metadata = self.doc_system.metadata.get(str(file_path), {})
             
-            return {
+            response = {
                 'status': 'success',
                 'file_path': file_path,
                 'purpose': metadata.get('purpose', 'Unknown'),
@@ -301,6 +275,7 @@ class DocumentationMCPServer:
                 'last_analyzed': metadata.get('last_analyzed', ''),
                 'documentation': documentation
             }
+            return response
             
         except Exception as e:
             logger.error(f"Get file context error: {e}")
@@ -311,12 +286,7 @@ class DocumentationMCPServer:
             }
     
     async def list_api_routes(self) -> Dict[str, Any]:
-        """
-        List all API routes in the project
-        
-        Returns:
-            All API endpoints grouped by file
-        """
+        """List all API routes in the project"""
         try:
             self._update_caches()
             
@@ -335,12 +305,13 @@ class DocumentationMCPServer:
                 method = route.get('method', 'UNKNOWN')
                 methods_count[method] = methods_count.get(method, 0) + 1
             
-            return {
+            response = {
                 'status': 'success',
                 'total_routes': total_routes,
                 'methods': methods_count,
                 'routes_by_file': routes_by_file
             }
+            return response
             
         except Exception as e:
             logger.error(f"List API routes error: {e}")
@@ -351,12 +322,7 @@ class DocumentationMCPServer:
             }
     
     async def list_database_models(self) -> Dict[str, Any]:
-        """
-        List all database models in the project
-        
-        Returns:
-            All database models with their types
-        """
+        """List all database models in the project"""
         try:
             self._update_caches()
             
@@ -368,12 +334,13 @@ class DocumentationMCPServer:
                     models_by_type[model_type] = []
                 models_by_type[model_type].append(model)
             
-            return {
+            response = {
                 'status': 'success',
                 'total_models': len(self._db_models_cache),
                 'models_by_type': models_by_type,
                 'all_models': self._db_models_cache
             }
+            return response
             
         except Exception as e:
             logger.error(f"List database models error: {e}")
@@ -384,15 +351,7 @@ class DocumentationMCPServer:
             }
     
     async def suggest_patterns(self, context: str) -> Dict[str, Any]:
-        """
-        Suggest existing patterns based on context
-        
-        Args:
-            context: Description of what you want to implement
-        
-        Returns:
-            Suggested patterns and examples from codebase
-        """
+        """Suggest existing patterns based on context"""
         try:
             # Search for relevant patterns
             search_results = self.doc_system.indexer.search(
@@ -429,13 +388,14 @@ class DocumentationMCPServer:
                         'purpose': meta['purpose']
                     })
             
-            return {
+            response = {
                 'status': 'success',
                 'context': context,
                 'suggested_patterns': patterns[:5],
                 'architecture_hints': architecture_hints[:3],
                 'recommendation': self._generate_pattern_recommendation(patterns, context)
             }
+            return response
             
         except Exception as e:
             logger.error(f"Suggest patterns error: {e}")
@@ -460,15 +420,7 @@ class DocumentationMCPServer:
             return f"Found {len(patterns)} related patterns. Review these before implementing."
     
     async def analyze_complexity(self, threshold: int = 10) -> Dict[str, Any]:
-        """
-        Find complex code areas that need refactoring
-        
-        Args:
-            threshold: Complexity score threshold
-        
-        Returns:
-            List of complex code elements
-        """
+        """Find complex code areas that need refactoring"""
         try:
             # Search for all elements
             all_elements = self.doc_system.indexer.element_collection.get()
@@ -496,7 +448,7 @@ class DocumentationMCPServer:
             high_count = sum(1 for e in complex_elements if 15 < e['complexity'] <= 20)
             medium_count = sum(1 for e in complex_elements if 10 <= e['complexity'] <= 15)
             
-            return {
+            response = {
                 'status': 'success',
                 'threshold': threshold,
                 'total_complex_elements': total_complex,
@@ -508,6 +460,7 @@ class DocumentationMCPServer:
                 'complex_elements': complex_elements[:20],  # Top 20 most complex
                 'recommendations': self._generate_complexity_recommendations(complex_elements)
             }
+            return response
             
         except Exception as e:
             logger.error(f"Analyze complexity error: {e}")
@@ -544,65 +497,169 @@ class DocumentationMCPServer:
 
 
 async def main():
-    """Main entry point for MCP server"""
+    """Main entry point for MCP server - simplified version"""
     logger.info("Starting Documentation MCP Server...")
     
     # Initialize server
     doc_server = DocumentationMCPServer(
         project_root=os.getenv("DOC_SYSTEM_PROJECT_ROOT", "."),
-        docs_dir=os.getenv("DOC_SYSTEM_DOCS_DIR", "docs")
+        docs_dir=os.getenv("DOC_SYSTEM_DOCS_DIR", "autodoc/autodoc_docs")
     )
     
     # Create MCP server
     server = Server("documentation-system")
     
-    # Register tools
-    @server.tool()
-    async def search_docs(query: str, limit: int = 10) -> Dict[str, Any]:
-        """Search documentation using semantic search"""
-        return await doc_server.search_docs(query, limit)
+    # Register handlers for each tool
+    @server.list_tools()
+    async def handle_list_tools():
+        """List available tools"""
+        return [
+            Tool(
+                name="search_docs",
+                description="Search documentation using semantic search",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string"},
+                        "limit": {"type": "number", "default": 10}
+                    },
+                    "required": ["query"]
+                }
+            ),
+            Tool(
+                name="find_similar_code",
+                description="Find similar code implementations",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "description": {"type": "string"},
+                        "limit": {"type": "number", "default": 5}
+                    },
+                    "required": ["description"]
+                }
+            ),
+            Tool(
+                name="check_dependencies",
+                description="Check what code depends on a target",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "target": {"type": "string"}
+                    },
+                    "required": ["target"]
+                }
+            ),
+            Tool(
+                name="get_file_context",
+                description="Get complete documentation for a file",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "file_path": {"type": "string"}
+                    },
+                    "required": ["file_path"]
+                }
+            ),
+            Tool(
+                name="list_api_routes",
+                description="List all API routes in the project",
+                inputSchema={
+                    "type": "object",
+                    "properties": {}
+                }
+            ),
+            Tool(
+                name="list_database_models",
+                description="List all database models",
+                inputSchema={
+                    "type": "object",
+                    "properties": {}
+                }
+            ),
+            Tool(
+                name="suggest_patterns",
+                description="Suggest existing patterns",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "context": {"type": "string"}
+                    },
+                    "required": ["context"]
+                }
+            ),
+            Tool(
+                name="analyze_complexity",
+                description="Find complex code areas",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "threshold": {"type": "number", "default": 10}
+                    }
+                }
+            )
+        ]
     
-    @server.tool()
-    async def find_similar_code(description: str, limit: int = 5) -> Dict[str, Any]:
-        """Find similar code implementations"""
-        return await doc_server.find_similar_code(description, limit)
+    @server.call_tool()
+    async def handle_call_tool(name: str, arguments: dict):
+        """Handle tool calls"""
+        logger.info(f"Tool called: {name} with args: {arguments}")
+        
+        if name == "search_docs":
+            result = await doc_server.search_docs(
+                arguments.get("query"),
+                arguments.get("limit", 10)
+            )
+            # Return list of TextContent as ContentBlock
+            return [
+                TextContent(
+                    type="text",
+                    text=json.dumps(result, indent=2)
+                )
+            ]
+        elif name == "find_similar_code":
+            result = await doc_server.find_similar_code(
+                arguments.get("description"),
+                arguments.get("limit", 5)
+            )
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+        elif name == "check_dependencies":
+            result = await doc_server.check_dependencies(arguments.get("target"))
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+        elif name == "get_file_context":
+            result = await doc_server.get_file_context(arguments.get("file_path"))
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+        elif name == "list_api_routes":
+            result = await doc_server.list_api_routes()
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+        elif name == "list_database_models":
+            result = await doc_server.list_database_models()
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+        elif name == "suggest_patterns":
+            result = await doc_server.suggest_patterns(arguments.get("context"))
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+        elif name == "analyze_complexity":
+            result = await doc_server.analyze_complexity(
+                arguments.get("threshold", 10)
+            )
+            return [TextContent(type="text", text=json.dumps(result, indent=2))]
+        else:
+            return [
+                TextContent(
+                    type="text",
+                    text=json.dumps({"error": f"Unknown tool: {name}"}, indent=2)
+                )
+            ]
     
-    @server.tool()
-    async def check_dependencies(target: str) -> Dict[str, Any]:
-        """Check what code depends on a target module/function"""
-        return await doc_server.check_dependencies(target)
+    # Start server with stdio
+    logger.info("MCP Server ready and listening...")
     
-    @server.tool()
-    async def get_file_context(file_path: str) -> Dict[str, Any]:
-        """Get complete documentation for a file"""
-        return await doc_server.get_file_context(file_path)
+    # Create initialization options
+    init_options = server.create_initialization_options()
     
-    @server.tool()
-    async def list_api_routes() -> Dict[str, Any]:
-        """List all API routes in the project"""
-        return await doc_server.list_api_routes()
-    
-    @server.tool()
-    async def list_database_models() -> Dict[str, Any]:
-        """List all database models in the project"""
-        return await doc_server.list_database_models()
-    
-    @server.tool()
-    async def suggest_patterns(context: str) -> Dict[str, Any]:
-        """Suggest existing patterns based on context"""
-        return await doc_server.suggest_patterns(context)
-    
-    @server.tool()
-    async def analyze_complexity(threshold: int = 10) -> Dict[str, Any]:
-        """Find complex code areas that need refactoring"""
-        return await doc_server.analyze_complexity(threshold)
-    
-    # Start server
-    async with stdio_server() as (read_stream, write_stream):
-        logger.info("MCP Server ready and listening...")
-        await server.run(read_stream, write_stream)
+    async with stdio.stdio_server() as (read_stream, write_stream):
+        await server.run(read_stream, write_stream, init_options)
 
 
 if __name__ == "__main__":
-    import asyncio
+    # Run the async main function
     asyncio.run(main())

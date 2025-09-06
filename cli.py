@@ -28,9 +28,9 @@ def cli():
     pass
 
 @cli.command()
-@click.option('--config', default='autodoc.config.json', help='Config file path')
+@click.option('--config', default='autodoc/autodoc.config.json', help='Config file path')
 @click.option('--project-root', default='.', help='Project root directory')
-@click.option('--docs-dir', default='autodoc_docs', help='Documentation directory')
+@click.option('--docs-dir', default='autodoc/autodoc_docs', help='Documentation directory')
 @click.option('--llm-model', default='codellama:7b', help='LLM model for analysis')
 @click.option('--port', default=3015, help='MCP server port (3010-3020 recommended)')
 def init(config, project_root, docs_dir, llm_model, port):
@@ -65,16 +65,19 @@ def init(config, project_root, docs_dir, llm_model, port):
             path.mkdir(parents=True, exist_ok=True)
             print(f"{Fore.GREEN}✅ Created: {path}{Style.RESET_ALL}")
     
-    # Save config
+    # Save config inside autodoc folder
+    config_path = Path(config)
+    config_path.parent.mkdir(parents=True, exist_ok=True)
     autodoc_config.to_file(config)
     print(f"{Fore.GREEN}✅ Config saved: {config}{Style.RESET_ALL}")
     
-    # Create .gitignore entries
+    # Create .gitignore entries (these are now all within autodoc/)
     gitignore_entries = [
-        f"\n# AutoDoc",
-        f"{docs_dir}/",
-        f"{autodoc_config.vector_db_dir}/",
-        "autodoc.config.json"
+        f"\n# AutoDoc generated files",
+        "autodoc/autodoc_docs/",
+        "autodoc/autodoc_vector_db/",
+        "autodoc/autodoc.config.json",
+        "autodoc/autodoc_venv/"
     ]
     
     gitignore_path = Path(project_root) / '.gitignore'
@@ -90,7 +93,7 @@ def init(config, project_root, docs_dir, llm_model, port):
     print(f"  3. Start file watcher: {Fore.YELLOW}autodoc watch{Style.RESET_ALL}")
 
 @cli.command()
-@click.option('--config', default='autodoc.config.json', help='Config file path')
+@click.option('--config', default='autodoc/autodoc.config.json', help='Config file path')
 @click.option('--directories', '-d', multiple=True, help='Directories to scan')
 @click.option('--parallel/--sequential', default=True, help='Parallel processing')
 def scan(config, directories, parallel):
@@ -122,7 +125,7 @@ def scan(config, directories, parallel):
     print(f"Documentation available in: {autodoc_config.docs_dir}/")
 
 @cli.command()
-@click.option('--config', default='autodoc.config.json', help='Config file path')
+@click.option('--config', default='autodoc/autodoc.config.json', help='Config file path')
 @click.option('--directories', '-d', multiple=True, help='Directories to watch')
 @click.option('--scan-first/--no-scan', default=False, help='Scan before watching')
 def watch(config, directories, scan_first):
@@ -154,7 +157,7 @@ def watch(config, directories, scan_first):
     doc_system.start_file_watcher(watch_dirs)
 
 @cli.command()
-@click.option('--config', default='autodoc.config.json', help='Config file path')
+@click.option('--config', default='autodoc/autodoc.config.json', help='Config file path')
 @click.option('--port', type=int, help='Server port (overrides config)')
 def server(config, port):
     """Start MCP server for Claude integration"""
@@ -191,7 +194,7 @@ def server(config, port):
 
 @cli.command()
 @click.argument('query')
-@click.option('--config', default='autodoc.config.json', help='Config file path')
+@click.option('--config', default='autodoc/autodoc.config.json', help='Config file path')
 @click.option('--limit', default=10, help='Number of results')
 def search(query, config, limit):
     """Search documentation (useful for testing)"""
