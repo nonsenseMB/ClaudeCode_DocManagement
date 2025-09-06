@@ -117,6 +117,30 @@ class DocumentationWatcher(FileSystemEventHandler):
     def on_created(self, event):
         """Handle file creation events"""
         self.on_modified(event)
+    
+    def on_deleted(self, event):
+        """Handle file deletion events"""
+        if event.is_directory:
+            return
+        
+        file_path = event.src_path
+        
+        # Only process Python files
+        if not file_path.endswith('.py'):
+            return
+        
+        # Check ignored patterns
+        if any(pattern in file_path for pattern in self.doc_system.ignored_patterns):
+            return
+        
+        logger.info(f"{Fore.RED}🗑️ File deleted: {file_path}{Style.RESET_ALL}")
+        
+        try:
+            # Remove from documentation system
+            self.doc_system.remove_file(file_path)
+            logger.info(f"{Fore.GREEN}✅ Removed from index: {file_path}{Style.RESET_ALL}")
+        except Exception as e:
+            logger.error(f"{Fore.RED}❌ Error removing {file_path}: {e}{Style.RESET_ALL}")
 
 
 class WatcherManager:

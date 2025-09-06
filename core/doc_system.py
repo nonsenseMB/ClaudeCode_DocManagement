@@ -608,6 +608,25 @@ class SemanticIndexer:
             }]
         )
     
+    def remove_file(self, file_path: str):
+        """Remove all entries for a deleted file from the vector database"""
+        logger.info(f"Removing entries for deleted file: {file_path}")
+        
+        try:
+            # Remove from file collection
+            self.file_collection.delete(
+                where={"file_path": file_path}
+            )
+            
+            # Remove all elements from this file from element collection
+            self.element_collection.delete(
+                where={"file_path": file_path}
+            )
+            
+            logger.info(f"Successfully removed all entries for: {file_path}")
+        except Exception as e:
+            logger.error(f"Error removing file from index: {e}")
+    
     def search(self, query: str, intent: str = "general", 
               filter_type: Optional[str] = None, limit: int = 10) -> List[Dict[str, Any]]:
         """Semantic search with intent-based filtering"""
@@ -814,6 +833,26 @@ class DocumentationSystem:
         self._save_metadata()
         
         return analysis
+    
+    def remove_file(self, file_path: str):
+        """Remove a deleted file from the documentation system"""
+        logger.info(f"Removing file from documentation system: {file_path}")
+        
+        # Remove from vector database
+        self.indexer.remove_file(file_path)
+        
+        # Remove from metadata
+        if file_path in self.metadata:
+            del self.metadata[file_path]
+            self._save_metadata()
+            logger.info(f"Removed metadata for: {file_path}")
+        
+        # Remove markdown documentation file
+        relative_path = Path(file_path).relative_to(self.project_root)
+        doc_file = self.docs_dir / "files" / f"{relative_path.stem}.md"
+        if doc_file.exists():
+            doc_file.unlink()
+            logger.info(f"Removed documentation file: {doc_file}")
     
     def _generate_documentation(self, analysis: FileAnalysis):
         """Generate markdown documentation for a file"""
