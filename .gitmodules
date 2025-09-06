@@ -1,0 +1,3 @@
+[submodule "autodoc"]
+	path = autodoc
+	url = https://github.com/nonsenseMB/ClaudeCode_DocManagement.git
